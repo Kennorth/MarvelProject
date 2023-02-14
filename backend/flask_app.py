@@ -2,16 +2,13 @@ from flask import Flask,request, redirect, render_template,jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate,migrate
 from sqlalchemy import delete
-from client import MarvelClient
 import os
 from flask_cors import CORS
 
 app = Flask(__name__)
-cors = CORS(app, resources={r"/*": {"origins": "*"}})
-cors = CORS(app, resources={r"/*": {"headers": "*"}})
-cors = CORS(app, resources={r"/*": {"methods": "*"}})
+CORS(app)
 app.debug=True
- 
+
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///site.db'
 
 db = SQLAlchemy(app)
@@ -78,7 +75,7 @@ def get_or_create(session, model, **kwargs):
     session.add(objeto)
     session.commit()
     return objeto,True
- 
+
 ###########################################################################################################################
 
 
@@ -90,7 +87,7 @@ def get_or_create(session, model, **kwargs):
 #POST = Cria equipe GET = retorna equipe e herois que fazem parte
 @app.route('/equipe', methods=["POST", "GET", "DELETE"])
 def equipe():
-    
+
     #POST
     if request.method == "POST":
         data = request.json
@@ -98,7 +95,7 @@ def equipe():
         db.session.add(equipe)
         db.session.commit()
         return {"id": equipe.Id, "nome": equipe.Name}
-    
+
     #GET
     elif(request.method == "GET"):
         lista_equipes= []
@@ -119,6 +116,15 @@ def equipe():
         db.session.commit()
         return "Equipe deletada"
 
+
+#REQUEST PARA BUSCAR UNICA EQUIPE POR ID
+@app.route('/team', methods=["GET"])
+def single_team():
+    data = request.json
+    team = data.get('equipe')
+    equipe = Team.query.filter_by(Id = team).first()
+    return equipe.serialize
+
 #REQUESTS RELACIONADOS A ADIÇÃO DE HEROIS A UMA EQUIPE
 #Adicionar Heroi a equipe
 @app.route('/add', methods=["POST","UPDATE"])
@@ -126,7 +132,7 @@ def add_to_team():
     data = request.json
     equipe = data.get('equipe')
     heroi = data.get('heroi')
-    updatehero = SelectedHero.query.filter_by(Id=heroi).first()
+    updatehero = SelectedHero.query.filter_by(name=heroi).first()
     updatehero.team = equipe
     db.session.commit()
     return "Heroi Alocado em equipe"
@@ -136,17 +142,16 @@ def add_to_team():
 #POST = Criar heroi selecionado na tabela GET= Retorna lista de herois selecionados
 @app.route('/heroi', methods=["POST", "GET", "DELETE"])
 def add_heroi():
-    
+
     #POST
     if (request.method == "POST"):
         data = request.json
-        for h in data.get('herois'):
-            nome = h.get('nome')
-            descricao = h.get('descricao')
-            imagem = h.get('imagem') 
-            heroi,created = get_or_create(db.session,SelectedHero,name= nome, description= descricao, image_url = imagem)
+        nome = data.get('nome')
+        descricao = data.get('descricao')
+        imagem = data.get('imagem')
+        heroi,created = get_or_create(db.session,SelectedHero,name= nome, description= descricao, image_url = imagem)
         return "Heroi criado"
-    
+
     #GET
     elif (request.method == "GET"):
         lista_herois=[]
@@ -159,10 +164,19 @@ def add_heroi():
     elif(request.method == "DELETE"):
         data = request.json
         nome = data.get('nome')
-        deleted = SelectedHero.query.filter_by(name = nome).first()  
+        deleted = SelectedHero.query.filter_by(name = nome).first()
         db.session.delete(deleted)
-        db.session.commit()     
-        return "Heroi deletado com sucesso" 
+        db.session.commit()
+        return "Heroi deletado com sucesso"
+
+
+#REQUEST PARA BUSCAR HEROI POR NOME
+@app.route('/search', methods=["GET"])
+def search_hero():
+    data = request.json
+    nome = data.get('nome')
+    heroi = SelectedHero.query.filter_by(name = nome).first()
+    return heroi.serialize
 
 #################################################################################################################################################
 
